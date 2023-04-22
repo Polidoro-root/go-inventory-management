@@ -1,0 +1,42 @@
+version: "3"
+
+networks:
+  database:
+    driver: bridge
+
+services:
+  app-test:
+    command: go test -v -coverprofile=coverage.out -cover -timeout 30s ./...
+    build:
+      context: .
+      target: runner
+    volumes:
+      - .:/usr/src/app
+      - .env.test:/usr/src/app/.env
+    env_file:
+      - .env.test
+    ports:
+      - 8000:8000
+    expose:
+      - 8000
+    depends_on:
+      - db-test
+    networks:
+      - database
+
+  db-test:
+    image: postgres:15
+    # container_name: db-test
+    tty: true
+    ports:
+      - 5432:5432
+    expose:
+      - 5432
+    volumes:
+      - ./sql/migrations:/docker-entrypoint-initdb.d/
+    environment:
+      - POSTGRES_DB=inventory_test
+      - POSTGRES_USER=test
+      - POSTGRES_PASSWORD=test
+    networks:
+      - database

@@ -1,15 +1,16 @@
-package user
+package entity
 
 import (
 	"errors"
 	"fmt"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 type Role string
 
 const (
-	Guest      Role = "guest"
 	Salesman   Role = "salesman"
 	Technician Role = "technician"
 	Admin      Role = "admin"
@@ -33,8 +34,7 @@ func NewUser(
 	email string,
 	phoneNumber string,
 	password string,
-	createdAt time.Time,
-	updatedAt time.Time) (*User, error) {
+) (*User, error) {
 
 	err := validateRole(role)
 
@@ -48,23 +48,38 @@ func NewUser(
 		return nil, err
 	}
 
+	if password == "" {
+		return nil, errors.New("user must have a password")
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+
+	if err != nil {
+		return nil, err
+	}
+
 	return &User{
 		ID:          id,
 		Name:        name,
 		Role:        role,
 		Email:       email,
 		PhoneNumber: phoneNumber,
-		Password:    password,
-		CreatedAt:   createdAt,
-		UpdatedAt:   updatedAt,
+		Password:    string(hash),
+		CreatedAt:   time.Now().UTC(),
+		UpdatedAt:   time.Now().UTC(),
 	}, nil
 }
 
+func (u *User) ValidatePassword(password string) error {
+
+	return bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password))
+}
+
 func validateRole(role Role) error {
-	isRoleValid := role == Guest ||
+	isRoleValid :=
 		role == Salesman ||
-		role == Technician ||
-		role == Admin
+			role == Technician ||
+			role == Admin
 
 	if !isRoleValid {
 		return fmt.Errorf("role '%s' is invalid", role)

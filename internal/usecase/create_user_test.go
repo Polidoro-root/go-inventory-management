@@ -1,61 +1,27 @@
-package usecase
+package usecase_test
 
 import (
-	"database/sql"
+	"context"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/suite"
 
-	entity "github.com/Polidoro-root/go-inventory-management/internal/entity/user"
+	"github.com/Polidoro-root/go-inventory-management/internal/entity"
+	"github.com/Polidoro-root/go-inventory-management/internal/usecase"
 )
 
-type UserRepositoryMock struct {
-	mock.Mock
-}
-
-func (m *UserRepositoryMock) Save(user *entity.User) (entity.User, error) {
-	m.Called(user)
-
-	newUser, err := entity.NewUser(
-		user.ID,
-		user.Name,
-		user.Role,
-		user.Email,
-		user.PhoneNumber,
-		user.Password,
-		user.CreatedAt,
-		time.Time{},
-	)
-
-	return *newUser, err
-}
-
-func (m *UserRepositoryMock) FindAll() ([]entity.User, error) {
-	return make([]entity.User, 0), nil
-}
-
-func (m *UserRepositoryMock) FindByID(id string) (*entity.User, error) {
-	return &entity.User{}, nil
-}
-
 type CreateUserUseCaseTestSuite struct {
-	suite.Suite
-	Db *sql.DB
-}
-
-func (suite *CreateUserUseCaseTestSuite) SetupSuite() {
-
 }
 
 func TestGivenAValidUserInput_WhenIExecuteCreateUser_ThenIShouldReceiveTheCreatedUser(t *testing.T) {
 
-	repository := &UserRepositoryMock{}
+	repository := &userRepositoryMock{
+		saveFn: func(ctx context.Context, user *entity.User) error {
+			return nil
+		},
+	}
 
-	input := CreateUserInputDTO{
+	input := usecase.CreateUserInputDTO{
 		AdminID:     uuid.New().String(),
 		Name:        "John Doe",
 		Role:        "technician",
@@ -64,30 +30,39 @@ func TestGivenAValidUserInput_WhenIExecuteCreateUser_ThenIShouldReceiveTheCreate
 		Password:    "password",
 	}
 
-	expectedOutput := CreateUserOutputDTO{
-
+	expectedUser := entity.User{
+		ID:          uuid.New().String(),
 		Name:        "John Doe",
 		Role:        "technician",
 		Email:       "john@doe.com",
 		PhoneNumber: "5515999999999",
 	}
 
-	uc := NewCreateUserUseCase(repository)
-
-	repository.On("Save", mock.Anything).Return(expectedOutput)
+	uc := usecase.NewCreateUserUseCase(repository)
 
 	output, err := uc.Execute(input)
 
-	repository.AssertNumberOfCalls(t, "Save", 1)
-	repository.AssertExpectations(t)
+	table := []struct {
+		input, expected string
+	}{
+		{expectedUser.Name, output.Name},
+		{expectedUser.Email, output.Email},
+		{expectedUser.PhoneNumber, output.PhoneNumber},
+		{string(expectedUser.Role), output.Role},
+	}
 
-	assert.Nil(t, err)
+	if err != nil {
+		t.Error(err)
+	}
 
-	assert.NotEmpty(t, output.ID)
-	assert.Equal(t, expectedOutput.Name, output.Name)
-	assert.Equal(t, expectedOutput.Email, output.Email)
-	assert.Equal(t, expectedOutput.PhoneNumber, output.PhoneNumber)
-	assert.Equal(t, expectedOutput.Role, output.Role)
-	assert.NotNil(t, output.CreatedAt)
+	if output.ID == "" {
+		t.Error("user must have an ID")
+	}
+
+	for _, item := range table {
+		if item.input != item.expected {
+			t.Errorf("Expected %s but got %s", item.expected, item.input)
+		}
+	}
 
 }

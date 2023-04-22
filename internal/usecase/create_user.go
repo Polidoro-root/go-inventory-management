@@ -1,9 +1,10 @@
 package usecase
 
 import (
+	"context"
 	"time"
 
-	entity "github.com/Polidoro-root/go-inventory-management/internal/entity/user"
+	"github.com/Polidoro-root/go-inventory-management/internal/entity"
 	"github.com/google/uuid"
 )
 
@@ -37,7 +38,9 @@ func NewCreateUserUseCase(
 	}
 }
 
-func (c *CreateUserUseCase) Execute(input CreateUserInputDTO) (CreateUserOutputDTO, error) {
+func (c *CreateUserUseCase) Execute(input CreateUserInputDTO) (*CreateUserOutputDTO, error) {
+	ctx := context.Background()
+
 	newUser, err := entity.NewUser(
 		uuid.New().String(),
 		input.Name,
@@ -45,26 +48,24 @@ func (c *CreateUserUseCase) Execute(input CreateUserInputDTO) (CreateUserOutputD
 		input.Email,
 		input.PhoneNumber,
 		input.Password,
-		time.Now(),
-		time.Time{},
 	)
 
 	if err != nil {
-		return CreateUserOutputDTO{}, err
+		return nil, err
 	}
 
-	output, err := c.UserRepository.Save(newUser)
+	err = c.UserRepository.Save(ctx, newUser)
 
 	if err != nil {
-		return CreateUserOutputDTO{}, err
+		return nil, err
 	}
 
-	return CreateUserOutputDTO{
-		ID:          output.ID,
-		Name:        output.Name,
-		Role:        string(output.Role),
-		Email:       output.Email,
-		PhoneNumber: output.PhoneNumber,
-		CreatedAt:   output.CreatedAt,
+	return &CreateUserOutputDTO{
+		ID:          newUser.ID,
+		Name:        newUser.Name,
+		Role:        string(newUser.Role),
+		Email:       newUser.Email,
+		PhoneNumber: newUser.PhoneNumber,
+		CreatedAt:   newUser.CreatedAt,
 	}, nil
 }
